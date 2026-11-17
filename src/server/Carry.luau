@@ -4,6 +4,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("GameConfig"))
+local Presentation = require(ReplicatedStorage.Shared:WaitForChild("Presentation"))
 local State = require(script.Parent.GameState)
 local Economy = require(script.Parent.Economy)
 local Factory = require(script.Parent.CharacterFactory)
@@ -146,8 +147,13 @@ function Carry.Bind(character: State.CharacterState)
 	anchor.Parent = character.Root
 	local prompt = Instance.new("ProximityPrompt")
 	prompt.Name = "BuyCharacter"
-	prompt.ObjectText = character.Model.Name
-	prompt.ActionText = string.format("Buy $%d", character.BuyPrice)
+	prompt.ObjectText = character.Model.Name .. " • " .. Config.Characters[character.CharacterId].Tier
+	prompt.ActionText = "Buy " .. Presentation.Money(character.BuyPrice)
+	prompt.Style = Enum.ProximityPromptStyle.Custom
+	prompt.Exclusivity = Enum.ProximityPromptExclusivity.OneGlobally
+	prompt:SetAttribute("Kind", "Buy")
+	prompt:SetAttribute("Available", true)
+	prompt:SetAttribute("Price", character.BuyPrice)
 	prompt.HoldDuration = Config.Carry.PromptHoldDuration
 	prompt.MaxActivationDistance = Config.Carry.PromptDistance
 	prompt.RequiresLineOfSight = false

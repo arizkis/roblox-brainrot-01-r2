@@ -2,6 +2,7 @@
 -- Builds one unparented, welded model. No spawn rolls, timers, purchases or ownership here.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("GameConfig"))
+local Presentation = require(ReplicatedStorage.Shared:WaitForChild("Presentation"))
 
 local Factory = {}
 local v = Vector3.new
@@ -137,21 +138,10 @@ local function applyMutation(model: Model, root: BasePart, mutation: string, hei
 	return height
 end
 
-local function money(amount: number): string
-	local cents = math.floor(amount * 100 + 0.5)
-	local digits = tostring(math.floor(cents / 100))
-	local grouped = string.reverse(digits):gsub("(%d%d%d)", "%1,")
-	local clean = string.reverse(grouped):gsub("^,", "")
-	local fraction = cents % 100
-	if fraction ~= 0 then
-		local suffix = string.format(".%02d", fraction):gsub("0$", "")
-		clean ..= suffix
-	end
-	return clean
-end
+local money = Presentation.Number
 
 local function incomeText(income: number, mutation: string, multiplier: number): string
-	local text = "$" .. money(income) .. "/s"
+	local text = "$" .. money(income, true) .. "/s"
 	if mutation ~= "Normal" then
 		text ..= "  •  " .. mutation .. " x" .. tostring(multiplier)
 	end
@@ -167,16 +157,18 @@ local function nameplate(model: Model, root: BasePart, height: number, name: str
 	local gui = Instance.new("BillboardGui")
 	gui.Name = "Nameplate"
 	gui.Adornee = anchor
-	gui.Size = UDim2.fromOffset(420, 120)
+	gui.Size = UDim2.fromOffset(Presentation.NameplateWidth, Presentation.NameplateHeight)
+	gui:SetAttribute("DesignWidth", Presentation.NameplateWidth)
+	gui:SetAttribute("DesignHeight", Presentation.NameplateHeight)
 	gui.StudsOffsetWorldSpace = v(0, 1.8, 0)
-	gui.MaxDistance = 72
+	gui.MaxDistance = 60
 	gui.AlwaysOnTop = false
 	gui.LightInfluence = 0
 	gui.Parent = model
 
 	local panel = Instance.new("Frame")
 	panel.Name = "Panel"
-	panel.Size = UDim2.fromScale(1, 1)
+	panel.Size = UDim2.fromOffset(Presentation.NameplateWidth, Presentation.NameplateHeight)
 	panel.BackgroundColor3 = INK
 	panel.BackgroundTransparency = 0.08
 	panel.BorderSizePixel = 0
@@ -205,21 +197,21 @@ local function nameplate(model: Model, root: BasePart, height: number, name: str
 		label.TextWrapped = false
 		label.Parent = panel
 		local constraint = Instance.new("UITextSizeConstraint")
-		constraint.MinTextSize = 16
+		constraint.MinTextSize = 24
 		constraint.MaxTextSize = size
 		constraint.Parent = label
 		return label
 	end
 
-	line("CharacterName", name, 3, 40, 32)
-	local rarity = line("Rarity", string.upper(tier), 44, 30, 25)
+	line("CharacterName", name, 3, 38, 30)
+	local rarity = line("Rarity", string.upper(tier), 42, 29, 24)
 	rarity.BackgroundColor3 = Config.Tiers[tier].Color
 	rarity.BackgroundTransparency = 0
 	local rarityCorner = Instance.new("UICorner")
 	rarityCorner.CornerRadius = UDim.new(0, 5)
 	rarityCorner.Parent = rarity
-	line("Income", incomeText(income, mutation, multiplier), 77, 39, 30)
-	local price = line("Price", "", 117, 30, 26)
+	line("Income", incomeText(income, mutation, multiplier), 74, 39, 28)
+	local price = line("Price", "", 115, 31, 25)
 	price.Visible = false
 end
 
@@ -237,7 +229,10 @@ function Factory.SetForSale(model: Model, forSale: boolean)
 	local price = panel:FindFirstChild("Price") :: TextLabel
 	price.Text = "$" .. money(model:GetAttribute("BuyPrice") :: number) .. "  •  BUY"
 	price.Visible = forSale
-	gui.Size = UDim2.fromOffset(420, if forSale then 150 else 120)
+	local height = if forSale then Presentation.SaleNameplateHeight else Presentation.NameplateHeight
+	gui:SetAttribute("DesignHeight", height)
+	gui.Size = UDim2.fromOffset(Presentation.NameplateWidth, height)
+	panel.Size = UDim2.fromOffset(Presentation.NameplateWidth, height)
 end
 
 function Factory.Create(characterId: string, mutationName: string?, origin: CFrame?): Model

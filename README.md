@@ -7,7 +7,8 @@ The current server core loop assigns bases, spawns a character every four second
 moves unclaimed stock along the diagonal conveyor, and lets players buy, carry and
 deliver characters onto their own pads. Placed characters pay cash every second.
 Tsunamis threaten carried cargo, rival bases can be robbed unless locked, and rebirths
-increase income/capacity while keeping placed characters. The client HUD arrives next.
+increase income/capacity while keeping placed characters. The client HUD shows live
+stats, tsunami warnings, ability buttons, notifications and readable interaction cards.
 
 All place script sources live under src/. default.project.json maps shared definitions
 to ReplicatedStorage.Shared, server modules beneath ServerScriptService.Server and
@@ -72,9 +73,32 @@ project; never edit scripts inside the binary independently.
   the income reward still applies. Cash, rates and next cost update immediately.
 - src/server/init.server.luau builds the world and replicated GameSignals folder,
   then starts the server systems. Carry's placement callback binds StealLock prompts;
-  there is no circular service dependency. The client entry remains empty.
+  there is no circular service dependency.
+- src/shared/Presentation.luau owns display units, colors and currency formatting.
+  HUD values compact millions/billions; server state keeps exact cash and rates.
+- src/client/Game.client.luau constructs the view and starts the three controllers.
+  HUDView.luau builds a ScreenGui on a 768x480 design canvas, fitted to the safe
+  viewport using UIScale. Cash/income/boost/pads use large outlined text; touch-only
+  layouts lift action buttons clear of the lower control area.
+- src/client/HUDController.luau reads player/global attributes, updates countdowns
+  from server timestamps and sends RequestLock/RequestRebirth. It never edits cash,
+  income, locks or rebirth state locally. Disabled buttons are grey and guarded;
+  pending requests stay disabled until acknowledgement or a short retry timeout.
+  The title/how-to splash fades after four seconds (earlier on first interaction),
+  and ActionMessage/ActionSequence now produce visible, fading notifications.
+- src/client/PromptController.luau renders a large custom prompt card with ObjectText,
+  ActionText, key/touch hint and hold progress. Keyboard/gamepad prompt input stays
+  with Roblox; mouse/touch holds forward through InputHoldBegin/InputHoldEnd. Local
+  filtering hides own steal prompts, rival pedestals and extra buys while carrying.
+  The server still revalidates every action, regardless of visibility or UI state.
+- src/client/NameplateController.luau scales billboard panels with the viewport and
+  keeps labels at full readable size. Within view range, focused/carried characters
+  are prioritized. Other overlapping callouts are hidden rather than shrunk, with
+  at most four ordinary callouts visible. HUD panels reserve their screen space.
+  Character labels use 24–30 design-pixel type; pedestal labels use 26–32. All keep
+  white text with a black stroke. No particle emitters were added.
 
-The future HUD can read these player attributes:
+The HUD reads these player attributes:
 
 | Attribute | Meaning |
 | --- | --- |
@@ -95,8 +119,10 @@ The future HUD can read these player attributes:
 | StateRevision | Written after each state publication |
 
 Purchase refusals such as "Base full! You need an empty pad." are exposed through
-ActionMessage and ActionSequence. There is no client notification UI yet; inspect
-attributes in Studio until the HUD is added. There are no client cash/purchase remotes.
+ActionMessage and ActionSequence and shown in the HUD notification area. There are
+no client cash/purchase remotes. Every world prompt names its object (character and
+tier, or numbered pedestal) and its action, including the price when money is spent.
+Availability metadata controls presentation only; it is never purchase authority.
 
 ReplicatedStorage.GameSignals carries TsunamiPhase (Calm, Warning, Sweeping,
 Receding), SecondsToWave, NextWaveAt, WaveEndsAt, TsunamiWarning and TsunamiBanner.
@@ -104,7 +130,7 @@ NextWaveAt/WaveEndsAt use Workspace:GetServerTimeNow() timestamps. SecondsToWave
 is zero during the active sweep/recession and becomes the next countdown afterward.
 RequestLock and RequestRebirth RemoteEvents take no arguments and always target
 the sender's own claimed base. They use the same validation as the world controls,
-with no distance requirement for the future HUD ability buttons. World prompts
+with no distance requirement for the HUD ability buttons. World prompts
 require the owner to stand near their own pedestal; rival presses are refused.
 
 Build and sync with Rojo 7.7:
@@ -132,6 +158,17 @@ becoming ready. During a wave, compare carried cargo in the open against cargo i
 any plot, and confirm placed stock stays safe. At positive income verify rebirth's exact
 cash debit, x1.5 rate, newly usable pad and unchanged placed models; repeat to the
 ten-pad cap and check zero-income rejection. These are engine checks to run in Studio.
+
+For client playtests, use 768x480 and larger viewports and verify the live stats, grey
+disabled controls, identical pedestal/HUD actions, splash fade, warning/sweep banner,
+long character names and mutation income lines. Check E, gamepad X and pointer holds
+on the interaction card. Nameplates are 360 design pixels wide with a 24-pixel minimum
+font, scaled with viewport width. Reducing a 1920px render to 768px wide retains 24px
+minimum nameplate text; the HUD separately fits the safe viewport height. This is
+a layout/scaling calculation; it does not substitute for inspecting a Studio render.
+
+API reference for the authored custom prompt adapter:
+[Roblox ProximityPrompt](https://create.roblox.com/docs/reference/engine/classes/ProximityPrompt).
 
 main.ts packages game.rbxl, src/, screenshots/ and PLAY.json with the kit's vendored
 make.fun library. The screenshots and TOUR.json are still the kit placeholders and

@@ -69,8 +69,13 @@ function StealLock.Bind(character: State.CharacterState)
 	anchor.Parent = character.Root
 	local prompt = Instance.new("ProximityPrompt")
 	prompt.Name = "StealCharacter"
-	prompt.ActionText = "Steal • carry home"
-	prompt.ObjectText = character.Model.Name
+	prompt.ActionText = "Steal • carry to your base"
+	prompt.ObjectText = character.Model.Name .. " • " .. Config.Characters[character.CharacterId].Tier
+	prompt.Style = Enum.ProximityPromptStyle.Custom
+	prompt.Exclusivity = Enum.ProximityPromptExclusivity.OneGlobally
+	prompt:SetAttribute("Kind", "Steal")
+	prompt:SetAttribute("OwnerUserId", character.OwnerUserId)
+	prompt:SetAttribute("Available", not StealLock.IsLocked(character.OwnerUserId))
 	prompt.MaxActivationDistance = Config.Carry.PromptDistance
 	prompt.HoldDuration = Config.StealLock.StealHoldDuration
 	prompt.RequiresLineOfSight = false
@@ -108,12 +113,16 @@ function StealLock.Refresh()
 			elseif cooldown then Color3.fromRGB(255, 174, 54) else Color3.fromRGB(126, 244, 79)
 		plot.Model:SetAttribute("Locked", locked)
 		if plot.LockPrompt then
-			plot.LockPrompt.Enabled = owner ~= nil and not locked and not cooldown
+			local available = owner ~= nil and not locked and not cooldown
+			plot.LockPrompt:SetAttribute("Available", available)
+			plot.LockPrompt.Enabled = available
 		end
 	end
 	for _, character in State.Characters do
 		if character.Status == "Placed" and character.Prompt then
-			character.Prompt.Enabled = not StealLock.IsLocked(character.OwnerUserId)
+			local available = not StealLock.IsLocked(character.OwnerUserId)
+			character.Prompt:SetAttribute("Available", available)
+			character.Prompt.Enabled = available
 		end
 	end
 end
@@ -149,8 +158,13 @@ function StealLock.Start()
 	for _, plot in world.Bases do
 		local prompt = Instance.new("ProximityPrompt")
 		prompt.Name = "LockBase"
-		prompt.ActionText = "Lock 60s"
-		prompt.ObjectText = "Your base • 90s cooldown after lock"
+		prompt.ActionText = "Lock base • 60s shield"
+		prompt.ObjectText = string.format("Base %02d lock pedestal", plot.Id)
+		prompt.Style = Enum.ProximityPromptStyle.Custom
+		prompt.Exclusivity = Enum.ProximityPromptExclusivity.OneGlobally
+		prompt:SetAttribute("Kind", "Lock")
+		prompt:SetAttribute("BaseId", plot.Id)
+		prompt:SetAttribute("Available", false)
 		prompt.RequiresLineOfSight = false
 		prompt.MaxActivationDistance = 10
 		prompt.Parent = plot.LockButton

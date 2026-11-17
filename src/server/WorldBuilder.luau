@@ -107,12 +107,22 @@ local function smallBillboard(part: BasePart, text: string, color: Color3)
 	local gui = Instance.new("BillboardGui")
 	gui.Name = "ButtonLabel"
 	gui.Adornee = part
-	gui.Size = UDim2.fromOffset(144, 40)
+	gui.Size = UDim2.fromOffset(176, 48)
+	gui:SetAttribute("DesignWidth", 176)
+	gui:SetAttribute("DesignHeight", 48)
 	gui.StudsOffsetWorldSpace = v(0, 1.5, 0)
-	gui.MaxDistance = 65
+	gui.MaxDistance = 48
 	gui.LightInfluence = 0
 	gui.Parent = part
-	local textLabel = label(gui, "Title", text, UDim2.fromScale(0, 0), UDim2.fromScale(1, 1), 30)
+	local panel = Instance.new("Frame")
+	panel.Name = "Panel"
+	panel.Size = UDim2.fromOffset(176, 48)
+	panel.BackgroundTransparency = 1
+	panel.Parent = gui
+	local textLabel = label(panel, "Title", text, UDim2.fromScale(0, 0), UDim2.fromScale(1, 1), 32)
+	local constraint = textLabel:FindFirstChildOfClass("UITextSizeConstraint")
+	assert(constraint)
+	constraint.MinTextSize = 26
 	textLabel.BackgroundColor3 = color
 	textLabel.BackgroundTransparency = 0.1
 	local corner = Instance.new("UICorner")

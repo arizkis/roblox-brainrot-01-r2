@@ -3,6 +3,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("GameConfig"))
+local Presentation = require(ReplicatedStorage.Shared:WaitForChild("Presentation"))
 local State = require(script.Parent.GameState)
 local Economy = require(script.Parent.Economy)
 local Carry = require(script.Parent.Carry)
@@ -48,8 +49,10 @@ function Rebirth.Refresh()
 		local ownerId = State.BaseOwners[id]
 		local owner = if ownerId then State.Players[ownerId] else nil
 		if plot.RebirthPrompt then
-			plot.RebirthPrompt.Enabled = owner ~= nil and owner.RebirthCost > 0
-			plot.RebirthPrompt.ActionText = if owner then string.format("Rebirth $%.2f", owner.RebirthCost) else "Rebirth"
+			local available = owner ~= nil and owner.RebirthCost > 0
+			plot.RebirthPrompt:SetAttribute("Available", available)
+			plot.RebirthPrompt.Enabled = available
+			plot.RebirthPrompt.ActionText = if available and owner then "Rebirth " .. Presentation.Money(owner.RebirthCost) else "Rebirth • earn income first"
 		end
 	end
 end
@@ -63,7 +66,13 @@ function Rebirth.Start()
 	for _, plot in world.Bases do
 		local prompt = Instance.new("ProximityPrompt")
 		prompt.Name = "Rebirth"
-		prompt.ObjectText = "Keep characters • x1.5 income • +1 pad"
+		prompt.ObjectText = string.format("Base %02d rebirth pedestal", plot.Id)
+		prompt.ActionText = "Rebirth • earn income first"
+		prompt.Style = Enum.ProximityPromptStyle.Custom
+		prompt.Exclusivity = Enum.ProximityPromptExclusivity.OneGlobally
+		prompt:SetAttribute("Kind", "Rebirth")
+		prompt:SetAttribute("BaseId", plot.Id)
+		prompt:SetAttribute("Available", false)
 		prompt.HoldDuration = 1
 		prompt.MaxActivationDistance = 10
 		prompt.RequiresLineOfSight = false
