@@ -129,6 +129,18 @@ Config.Carry = {
 	PadEdgeTolerance = 0.65, PadVerticalReach = 7,
 }
 
+Config.Tsunami = {
+	CycleDuration = 90, WarningDuration = 10, SweepDuration = 8, RecedeDuration = 2,
+	Height = 22, Depth = 7, EdgeMargin = 8,
+}
+
+Config.StealLock = {
+	LockDuration = 60, CooldownDuration = 90, StolenSpeedFactor = 0.75,
+	StealHoldDuration = 0.75, UpdateInterval = 0.25,
+}
+
+Config.Rebirth = {CostFactor = 15, IncomeFactor = 1.5, PadIncrement = 1}
+
 Config.CharacterOrder = {
 	"wet_floor_sign", "expired_yogurt_cup", "moldy_muffin",
 	"roomba_with_a_knife", "radical_garden_gnome", "rusty_clippy",

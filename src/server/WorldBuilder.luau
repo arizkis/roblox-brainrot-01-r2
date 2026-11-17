@@ -1,5 +1,5 @@
 --!strict
--- Static geometry and references only. Claiming, locking and belt movement come later.
+-- Geometry and references only; gameplay modules drive the resulting controls/effects.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("GameConfig"))
 
@@ -17,11 +17,18 @@ export type BasePlot = {
 	Id: number,
 	Model: Model,
 	Deck: BasePart,
+	Color: Color3,
+	PadFolder: Folder,
 	Pads: {BasePart},
 	PadSlots: {Attachment},
 	SafeZone: BasePart,
 	LockButton: BasePart,
 	OwnerLabel: TextLabel,
+	LockLabel: TextLabel,
+	Shield: BasePart,
+	RebirthButton: BasePart,
+	LockPrompt: ProximityPrompt?,
+	RebirthPrompt: ProximityPrompt?,
 }
 
 export type World = {
@@ -190,6 +197,32 @@ local function buildConveyor(root: Model): (BasePart, Attachment, Attachment)
 	return belt, beltStart, beltEnd
 end
 
+function WorldBuilder.SetPadAllowance(plot: BasePlot, allowance: number)
+	assert(allowance >= Config.World.StartingPads and allowance <= Config.World.MaxPads, "Invalid pad allowance")
+	for index = #plot.Pads, allowance + 1, -1 do
+		plot.Pads[index]:Destroy()
+		plot.Pads[index] = nil
+	end
+	for index = 1, allowance do
+		if plot.Pads[index] then
+			continue
+		end
+		local pad = block(plot.PadFolder, string.format("Pad_%02d", index), v(3.5, 0.3, 3.5),
+			plot.PadSlots[index].WorldCFrame * CFrame.new(0, -0.15, 0), plot.Color)
+		pad:SetAttribute("PadIndex", index)
+		pad:SetAttribute("BaseId", plot.Id)
+		pad:SetAttribute("Occupied", false)
+		local gui = Instance.new("SurfaceGui")
+		gui.Name = "PadNumber"
+		gui.Face = Enum.NormalId.Top
+		gui.CanvasSize = Vector2.new(200, 200)
+		gui.LightInfluence = 0
+		gui.Parent = pad
+		label(gui, "Number", string.format("%02d", index), UDim2.fromScale(0.1, 0.1), UDim2.fromScale(0.8, 0.8), 100)
+		plot.Pads[index] = pad
+	end
+end
+
 local function buildBase(root: Model, id: number): BasePlot
 	local plot = group(root, string.format("Base_%02d", id))
 	plot:SetAttribute("BaseId", id)
@@ -210,7 +243,6 @@ local function buildBase(root: Model, id: number): BasePlot
 	local padFolder = Instance.new("Folder")
 	padFolder.Name = "Pads"
 	padFolder.Parent = plot
-	local pads = {}
 	local slots = {}
 	for index = 1, Config.World.MaxPads do
 		local position: Vector3
@@ -225,21 +257,6 @@ local function buildBase(root: Model, id: number): BasePlot
 		slot:SetAttribute("PadIndex", index)
 		slot.Parent = deck
 		table.insert(slots, slot)
-		if index <= Config.World.StartingPads then
-			local pad = block(padFolder, string.format("Pad_%02d", index), v(3.5, 0.3, 3.5),
-				frame * CFrame.new(position - v(0, 0.15, 0)), color)
-			pad:SetAttribute("PadIndex", index)
-			pad:SetAttribute("BaseId", id)
-			pad:SetAttribute("Occupied", false)
-			local gui = Instance.new("SurfaceGui")
-			gui.Name = "PadNumber"
-			gui.Face = Enum.NormalId.Top
-			gui.CanvasSize = Vector2.new(200, 200)
-			gui.LightInfluence = 0
-			gui.Parent = pad
-			label(gui, "Number", string.format("%02d", index), UDim2.fromScale(0.1, 0.1), UDim2.fromScale(0.8, 0.8), 100)
-			table.insert(pads, pad)
-		end
 	end
 
 	for _, side in {-1, 1} do
@@ -247,21 +264,32 @@ local function buildBase(root: Model, id: number): BasePlot
 	end
 	local board = block(plot, "OwnerSign", v(26, 3.5, 0.4), frame * CFrame.new(0, 6.8, 10.6), color)
 	local ownerLabel = sign(board, string.format("BASE %02d • UNCLAIMED", id), "A HOME FOR YOUR BRAINROT")
+	local lockBoard = block(plot, "LockStateSign", v(23, 1.6, 0.35), frame * CFrame.new(0, 9.5, 10.6), INK)
+	local lockLabel = sign(lockBoard, "LOCK READY", "")
+	local shield = block(plot, "PadShield", v(28, 8, 11), frame * CFrame.new(0, 5.2, 0.75), CYAN, Enum.Material.ForceField)
+	shield.Transparency = 1
+	decoration(shield)
 
 	local pedestal = block(plot, "LockPedestal", v(2.6, 1.8, 2.6), frame * CFrame.new(12, 1.7, -7.5), INK)
 	sign(pedestal, "BASE LOCK", "60s / 90s CD")
 	local button = block(plot, "LockButton", v(2.2, 0.4, 2.2), frame * CFrame.new(12, 2.8, -7.5), rgb(126, 244, 79), Enum.Material.Neon)
 	button:SetAttribute("BaseId", id)
 	smallBillboard(button, "LOCK", INK)
-	-- The sign and button are scenery this turn; there are no working interactions yet.
+	block(plot, "RebirthPedestal", v(2.6, 1.8, 2.6), frame * CFrame.new(-12, 1.7, -7.5), INK)
+	local rebirthButton = block(plot, "RebirthButton", v(2.2, 0.4, 2.2), frame * CFrame.new(-12, 2.8, -7.5), GOLD, Enum.Material.Neon)
+	rebirthButton:SetAttribute("BaseId", id)
+	smallBillboard(rebirthButton, "REBIRTH", INK)
 	local safeZone = block(plot, "SafeZone", v(32, 8, 24), frame * CFrame.new(0, 4.8, 0), color)
 	safeZone.Transparency = 1
 	decoration(safeZone)
 	safeZone:SetAttribute("BaseId", id)
-	return {
-		Id = id, Model = plot, Deck = deck, Pads = pads, PadSlots = slots,
+	local result: BasePlot = {
+		Id = id, Model = plot, Deck = deck, Color = color, PadFolder = padFolder, Pads = {}, PadSlots = slots,
 		SafeZone = safeZone, LockButton = button, OwnerLabel = ownerLabel,
+		LockLabel = lockLabel, Shield = shield, RebirthButton = rebirthButton,
 	}
+	WorldBuilder.SetPadAllowance(result, Config.World.StartingPads)
+	return result
 end
 
 local function buildDecor(root: Model)

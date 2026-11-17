@@ -10,8 +10,9 @@ local Factory = require(script.Parent.CharacterFactory)
 
 local Carry = {}
 local started = false
+local placedHandler: ((State.CharacterState) -> ())? = nil
 
-local function livingRoot(player: Player): BasePart?
+function Carry.LivingRoot(player: Player): BasePart?
 	local avatar = player.Character
 	if not avatar then
 		return nil
@@ -22,6 +23,32 @@ local function livingRoot(player: Player): BasePart?
 		return root
 	end
 	return nil
+end
+
+function Carry.RestoreSpeed(record: State.PlayerState)
+	local humanoid = record.SlowedHumanoid
+	if humanoid and humanoid.Parent and record.NormalWalkSpeed then
+		humanoid.WalkSpeed = record.NormalWalkSpeed
+	end
+	record.SlowedHumanoid = nil
+	record.NormalWalkSpeed = nil
+end
+
+local function updateSpeed(record: State.PlayerState, stolen: boolean)
+	local avatar = record.Player.Character
+	local humanoid = if avatar then avatar:FindFirstChildOfClass("Humanoid") else nil
+	if not stolen or not humanoid or humanoid.Health <= 0 then
+		Carry.RestoreSpeed(record)
+		return
+	end
+	if record.SlowedHumanoid ~= humanoid then
+		Carry.RestoreSpeed(record)
+		record.SlowedHumanoid = humanoid
+		record.NormalWalkSpeed = humanoid.WalkSpeed
+	end
+	local normalSpeed = record.NormalWalkSpeed
+	assert(normalSpeed, "Missing original walk speed")
+	humanoid.WalkSpeed = normalSpeed * Config.StealLock.StolenSpeedFactor
 end
 
 local function detach(character: State.CharacterState)
@@ -49,12 +76,45 @@ local function attach(character: State.CharacterState, avatarRoot: BasePart)
 	character.CarryWeld = weld
 end
 
+-- Callers finish authorization and any cash/pad transaction before this no-yield step.
+function Carry.Begin(record: State.PlayerState, character: State.CharacterState, avatarRoot: BasePart, stolen: boolean)
+	State.ClearPrompt(character)
+	character.Status = "Carried"
+	character.CarrierUserId = record.Player.UserId
+	character.PadIndex = nil
+	character.StolenFromUserId = if stolen then character.OwnerUserId else nil
+	if not stolen then
+		character.OwnerUserId = record.Player.UserId
+	end
+	record.CarriedCharacter = character.Model
+	Factory.SetForSale(character.Model, false)
+	character.IncomePerSecond = character.IntrinsicIncome * record.IncomeMultiplier
+	Factory.SetIncome(character.Model, character.IncomePerSecond)
+	State.PublishCharacter(character)
+	attach(character, avatarRoot)
+	updateSpeed(record, stolen)
+end
+
+function Carry.WashAway(record: State.PlayerState): boolean
+	local model = record.CarriedCharacter
+	local character = if model then State.Characters[model] else nil
+	if not character or character.Status ~= "Carried" or character.CarrierUserId ~= record.Player.UserId then
+		return false
+	end
+	detach(character)
+	record.CarriedCharacter = nil
+	Carry.RestoreSpeed(record)
+	State.DestroyCharacter(character)
+	State.Notify(record, "WASHED AWAY! Your carried character was lost. Shelter inside any base.")
+	return true
+end
+
 local function buy(player: Player, character: State.CharacterState)
 	local record = State.Players[player.UserId]
 	if not record then
 		return
 	end
-	local avatarRoot = livingRoot(player)
+	local avatarRoot = Carry.LivingRoot(player)
 	if not avatarRoot then
 		State.Notify(record, "Wait for your character to respawn.")
 		return
@@ -74,23 +134,7 @@ local function buy(player: Player, character: State.CharacterState)
 		return
 	end
 	-- Nothing in this transaction yields, including the Economy call above.
-	character.Status = "Carried"
-	character.OwnerUserId = player.UserId
-	character.CarrierUserId = player.UserId
-	record.CarriedCharacter = character.Model
-	if character.PromptConnection then
-		character.PromptConnection:Disconnect()
-		character.PromptConnection = nil
-	end
-	if character.Prompt then
-		character.Prompt:Destroy()
-		character.Prompt = nil
-	end
-	Factory.SetForSale(character.Model, false)
-	character.IncomePerSecond = character.IntrinsicIncome * record.IncomeMultiplier
-	Factory.SetIncome(character.Model, character.IncomePerSecond)
-	State.PublishCharacter(character)
-	attach(character, avatarRoot)
+	Carry.Begin(record, character, avatarRoot, false)
 	State.Notify(record, "Bought " .. character.Model.Name .. "! Walk onto an empty pad in your base.")
 end
 
@@ -146,34 +190,43 @@ function Carry.Scan()
 	for _, record in State.Players do
 		local model = record.CarriedCharacter
 		if not model then
+			Carry.RestoreSpeed(record)
 			continue
 		end
 		local character = State.Characters[model]
-		if not character then
+		if not character or character.Status ~= "Carried" or character.CarrierUserId ~= record.Player.UserId then
 			record.CarriedCharacter = nil
+			Carry.RestoreSpeed(record)
 			State.Publish(record)
 			continue
 		end
-		local avatarRoot = livingRoot(record.Player)
+		local avatarRoot = Carry.LivingRoot(record.Player)
 		if not avatarRoot then
 			-- Keep an undelivered purchase across resets; reattach after respawning.
 			detach(character)
+			Carry.RestoreSpeed(record)
 			continue
 		end
 		attach(character, avatarRoot)
+		updateSpeed(record, character.StolenFromUserId ~= nil)
 		local index = nearestEmptyPad(record, avatarRoot.Position)
 		local plot = Economy.GetPlot(record)
 		if index and plot and Economy.TryPlace(record, character, index) then
 			detach(character)
 			-- Slot transforms are horizontal and sit exactly on the pad's top surface.
 			model:PivotTo(plot.PadSlots[index].WorldCFrame)
+			Carry.RestoreSpeed(record)
+			if placedHandler then
+				placedHandler(character)
+			end
 		end
 	end
 end
 
-function Carry.Start()
+function Carry.Start(onPlaced: (State.CharacterState) -> ())
 	assert(not started, "Carry already started")
 	started = true
+	placedHandler = onPlaced
 	RunService.Heartbeat:Connect(function(dt: number)
 		State.CarryScanElapsed += dt
 		if State.CarryScanElapsed >= Config.Carry.PadScanInterval then

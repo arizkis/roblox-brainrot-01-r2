@@ -5,6 +5,7 @@ local RunService = game:GetService("RunService")
 local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("GameConfig"))
 local State = require(script.Parent.GameState)
 local Factory = require(script.Parent.CharacterFactory)
+local WorldBuilder = require(script.Parent.WorldBuilder)
 
 local Economy = {}
 local started = false
@@ -47,6 +48,24 @@ function Economy.Refresh(record: State.PlayerState)
 	end
 	record.IncomePerSecond = total
 	record.PadsUsed = used
+	record.RebirthCost = total * Config.Rebirth.CostFactor
+	local carried = if record.CarriedCharacter then State.Characters[record.CarriedCharacter] else nil
+	if carried and carried.Status == "Carried" and carried.CarrierUserId == record.Player.UserId then
+		local preview = carried.IntrinsicIncome * record.IncomeMultiplier
+		if carried.IncomePerSecond ~= preview then
+			carried.IncomePerSecond = preview
+			Factory.SetIncome(carried.Model, preview)
+		end
+	end
+end
+
+function Economy.Spend(record: State.PlayerState, amount: number): boolean
+	assert(amount >= 0 and amount < math.huge, "Invalid cash amount")
+	if record.Cash < amount then
+		return false
+	end
+	record.Cash -= amount
+	return true
 end
 
 -- This is a synchronous transaction: validate everything before charging anything.
@@ -63,11 +82,28 @@ function Economy.TryPurchase(record: State.PlayerState, character: State.Charact
 	if not Economy.FreePad(record) then
 		return false, "Base full! You need an empty pad."
 	end
-	if record.Cash < character.BuyPrice then
+	if not Economy.Spend(record, character.BuyPrice) then
 		return false, string.format("Not enough cash! You need $%d.", character.BuyPrice)
 	end
-	record.Cash -= character.BuyPrice
 	return true, ""
+end
+
+function Economy.Unplace(character: State.CharacterState): boolean
+	local owner = if character.OwnerUserId then State.Players[character.OwnerUserId] else nil
+	local index = character.PadIndex
+	if not owner or not index or character.Status ~= "Placed" or owner.Pads[index] ~= character.Model then
+		return false
+	end
+	owner.Pads[index] = nil
+	character.PadIndex = nil
+	local plot = Economy.GetPlot(owner)
+	if plot then
+		plot.Pads[index]:SetAttribute("Occupied", false)
+		plot.Pads[index]:SetAttribute("CharacterId", nil)
+	end
+	Economy.Refresh(owner)
+	State.Publish(owner)
+	return true
 end
 
 function Economy.TryPlace(record: State.PlayerState, character: State.CharacterState, index: number): boolean
@@ -75,7 +111,7 @@ function Economy.TryPlace(record: State.PlayerState, character: State.CharacterS
 	if State.Characters[character.Model] ~= character
 		or not plot or not plot.Pads[index] or index < 1 or index > record.PadAllowance
 		or record.Pads[index] or record.CarriedCharacter ~= character.Model
-		or character.Status ~= "Carried" or character.OwnerUserId ~= record.Player.UserId
+		or character.Status ~= "Carried"
 		or character.CarrierUserId ~= record.Player.UserId then
 		return false
 	end
@@ -84,6 +120,9 @@ function Economy.TryPlace(record: State.PlayerState, character: State.CharacterS
 	character.Status = "Placed"
 	character.PadIndex = index
 	character.CarrierUserId = nil
+	-- A theft becomes ownership only after successful delivery onto the thief's pad.
+	character.OwnerUserId = record.Player.UserId
+	character.StolenFromUserId = nil
 	character.IncomePerSecond = character.IntrinsicIncome * record.IncomeMultiplier
 	Factory.SetIncome(character.Model, character.IncomePerSecond)
 	plot.Pads[index]:SetAttribute("Occupied", true)
@@ -105,12 +144,18 @@ function Economy.RemovePlayer(record: State.PlayerState)
 	table.clear(record.Pads)
 	record.CarriedCharacter = nil
 	for _, character in State.Characters do
-		if character.OwnerUserId == record.Player.UserId then
+		-- In-flight theft survives the victim leaving. A departing carrier loses cargo.
+		if character.CarrierUserId == record.Player.UserId
+			or (character.OwnerUserId == record.Player.UserId and character.Status ~= "Carried") then
 			State.DestroyCharacter(character)
 		end
 	end
 	record.IncomePerSecond = 0
 	record.PadsUsed = 0
+	record.RebirthCost = 0
+	if plot then
+		WorldBuilder.SetPadAllowance(plot, Config.World.StartingPads)
+	end
 end
 
 function Economy.Pay(ticks: number)

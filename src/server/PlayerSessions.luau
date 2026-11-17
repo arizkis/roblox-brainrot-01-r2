@@ -3,6 +3,7 @@
 local Players = game:GetService("Players")
 local State = require(script.Parent.GameState)
 local Economy = require(script.Parent.Economy)
+local Carry = require(script.Parent.Carry)
 
 local Sessions = {}
 local started = false
@@ -46,6 +47,7 @@ local function left(player: Player)
 	if not record then
 		return
 	end
+	Carry.RestoreSpeed(record)
 	Economy.RemovePlayer(record)
 	local baseId = record.BaseId
 	local world = State.World
@@ -56,6 +58,7 @@ local function left(player: Player)
 		plot.OwnerLabel.Text = string.format("BASE %02d • UNCLAIMED", baseId)
 	end
 	State.Players[player.UserId] = nil
+	State.Tsunami.PlayerPositions[player.UserId] = nil
 	for index = #State.WaitingForBase, 1, -1 do
 		if State.WaitingForBase[index] == player.UserId then
 			table.remove(State.WaitingForBase, index)
