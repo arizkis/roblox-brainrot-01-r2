@@ -1,21 +1,51 @@
-# roblox-brainrot-01 starter
+# BRAINROT BAZAAR
 
-A working entry for make.fun's "Make the best AI Roblox brainrot game" bounty (roblox-brainrot-01), laid out as your
-repository: a Rojo project whose game is a grey square that moves with the arrow keys. It is a starting point, not a
-winner, and not yet the 3D game the bounty asks for: its square is drawn on the screen, not in Roblox's 3D world.
+A Rojo-first Roblox brainrot collection game for make.fun's roblox-brainrot-01 bounty.
+The published experience is named **Brainrot Bazzar**; PLAY.json identifies it.
 
-- `main.ts` (Node 22, standard library only) hands the game in: it copies `game.rbxl`, `src/`, `screenshots/` and
-  `PLAY.json` to `/output`, leaving out every name that starts with a dot (such as `.gitkeep` or `.DS_Store`, which
-  fail an entry), and writes `/output/dossier.json` with `vendor/makefun-roblox.ts`, the kit's copy, unchanged.
-- `game.rbxl` is the place Rojo builds from `src/` and `default.project.json`; `screenshots/` holds three captures of
-  it; `PLAY.json` names no place yet, so the gate refuses the starter as it stands until it names your published one.
-- One of your screenshots must also be your game's first thumbnail on Roblox: the same picture, uploaded on the
-  Creator Dashboard with your game's icon.
-- `TOUR.json` is an example of the optional tour: for each screenshot, the keys that bring the game to that screen.
+The current foundation builds a bright 3D plaza at server startup: a diagonal conveyor,
+six unclaimed base plots with six pads each, lock pedestals, owner signs, a spawn and
+an economy directory. This stage has no claiming, conveyor movement, purchases,
+income, stealing, lock timers, tsunami or rebirth behavior yet.
 
-Run it as the grader does, writing `out/` in place of `/output`:
+All place script sources live under src/. default.project.json maps shared definitions
+to ReplicatedStorage.Shared, server modules beneath ServerScriptService.Server and
+the client entry to StarterPlayerScripts.Client. game.rbxl is generated from that
+project; never edit scripts inside the binary independently.
 
-    mkdir -p out && MAKEFUN_OUTPUT_DIR=out node main.ts
+- src/shared/GameConfig.luau owns immutable tier prices, income, colors, mutation
+  definitions/probabilities and the 18 original, part-built character recipes. Mutation
+  probabilities are mutually exclusive absolute bands; their remainder is normal.
+- src/server/CharacterFactory.luau exposes Create(characterId, mutationName?, origin?).
+  It returns an unparented Model with a foot-level Root pivot, one welded assembly,
+  a mutation treatment, metadata attributes and a three-line billboard. Omit the
+  mutation or pass "Normal" for an ordinary character. No random rolls happen here.
+- src/server/WorldBuilder.luau exposes Build(parent). Its return value includes the
+  six plots, pad/expansion anchors, owner labels, lock buttons, safe-zone volumes,
+  conveyor start/end attachments and player spawn. These are geometry references.
+- src/server/GameState.luau is the single mutable state home. Only World is populated
+  at startup; player, character and base-owner maps are reserved for later services.
+- src/server/init.server.luau builds the world. src/client/Game.client.luau is an empty
+  controller entry, leaving standard Roblox avatar and camera controls active.
 
-The rules are on the bounty's page (/bounty/roblox-brainrot-01) and in the kit's RULES.txt,
-which gives every command in order (Before you submit, then Enter).
+Build and sync with Rojo 7.7:
+
+```sh
+rojo build default.project.json --output /tmp/smoke.rbxl
+rojo build default.project.json --output game.rbxl
+rojo serve default.project.json
+```
+
+For an isolated factory preview in Studio's **server Command Bar**, use the existing
+module (this does not create another script):
+
+```lua
+local factory = require(game.ServerScriptService.Server.CharacterFactory)
+local model = factory.Create("ascended_shopping_cart", "Diamond", CFrame.new(0, 1, 0))
+model.Parent = workspace
+```
+
+main.ts packages game.rbxl, src/, screenshots/ and PLAY.json with the kit's vendored
+make.fun library. The screenshots and TOUR.json are still the kit placeholders and
+will need replacement when the game is playable. The owner's pending play-code
+description step remains separate from building the game.
