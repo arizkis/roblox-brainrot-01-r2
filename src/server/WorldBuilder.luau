@@ -31,6 +31,7 @@ export type World = {
 	BeltStart: Attachment,
 	BeltEnd: Attachment,
 	Spawn: SpawnLocation,
+	Characters: Folder,
 }
 
 local function group(parent: Instance, name: string): Model
@@ -192,6 +193,7 @@ end
 local function buildBase(root: Model, id: number): BasePlot
 	local plot = group(root, string.format("Base_%02d", id))
 	plot:SetAttribute("BaseId", id)
+	plot:SetAttribute("OwnerUserId", 0)
 	local color = BASE_COLORS[id]
 	-- Endpoints sit halfway between adjacent plots, leaving the lane unobstructed.
 	local angle = math.rad(15 + (id - 1) * 60)
@@ -228,6 +230,7 @@ local function buildBase(root: Model, id: number): BasePlot
 				frame * CFrame.new(position - v(0, 0.15, 0)), color)
 			pad:SetAttribute("PadIndex", index)
 			pad:SetAttribute("BaseId", id)
+			pad:SetAttribute("Occupied", false)
 			local gui = Instance.new("SurfaceGui")
 			gui.Name = "PadNumber"
 			gui.Face = Enum.NormalId.Top
@@ -300,6 +303,9 @@ end
 function WorldBuilder.Build(parent: Instance): World
 	assert(not parent:FindFirstChild("BrainrotBazaar"), "BrainrotBazaar world already built")
 	local root = group(parent, "BrainrotBazaar")
+	local characters = Instance.new("Folder")
+	characters.Name = "Characters"
+	characters.Parent = root
 	buildPlaza(root)
 	local belt, beltStart, beltEnd = buildConveyor(root)
 	local basesRoot = group(root, "Bases")
@@ -323,7 +329,7 @@ function WorldBuilder.Build(parent: Instance): World
 	spawn.Parent = root
 	local welcome = block(root, "WelcomeMat", v(12, 0.1, 3), CFrame.new(0, 0.1, -46), INK)
 	sign(welcome, "WELCOME TO THE BAZAAR", "", Enum.NormalId.Top)
-	return {Root = root, Bases = bases, Belt = belt, BeltStart = beltStart, BeltEnd = beltEnd, Spawn = spawn}
+	return {Root = root, Bases = bases, Belt = belt, BeltStart = beltStart, BeltEnd = beltEnd, Spawn = spawn, Characters = characters}
 end
 
 return WorldBuilder

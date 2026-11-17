@@ -138,10 +138,24 @@ local function applyMutation(model: Model, root: BasePart, mutation: string, hei
 end
 
 local function money(amount: number): string
-	local digits = tostring(math.floor(amount))
+	local cents = math.floor(amount * 100 + 0.5)
+	local digits = tostring(math.floor(cents / 100))
 	local grouped = string.reverse(digits):gsub("(%d%d%d)", "%1,")
 	local clean = string.reverse(grouped):gsub("^,", "")
+	local fraction = cents % 100
+	if fraction ~= 0 then
+		local suffix = string.format(".%02d", fraction):gsub("0$", "")
+		clean ..= suffix
+	end
 	return clean
+end
+
+local function incomeText(income: number, mutation: string, multiplier: number): string
+	local text = "$" .. money(income) .. "/s"
+	if mutation ~= "Normal" then
+		text ..= "  •  " .. mutation .. " x" .. tostring(multiplier)
+	end
+	return text
 end
 
 local function nameplate(model: Model, root: BasePart, height: number, name: string, tier: string, mutation: string, income: number, multiplier: number)
@@ -204,11 +218,26 @@ local function nameplate(model: Model, root: BasePart, height: number, name: str
 	local rarityCorner = Instance.new("UICorner")
 	rarityCorner.CornerRadius = UDim.new(0, 5)
 	rarityCorner.Parent = rarity
-	local incomeText = "$" .. money(income) .. "/s"
-	if mutation ~= "Normal" then
-		incomeText ..= "  •  " .. mutation .. " x" .. tostring(multiplier)
-	end
-	line("Income", incomeText, 77, 39, 30)
+	line("Income", incomeText(income, mutation, multiplier), 77, 39, 30)
+	local price = line("Price", "", 117, 30, 26)
+	price.Visible = false
+end
+
+function Factory.SetIncome(model: Model, income: number)
+	model:SetAttribute("IncomePerSecond", income)
+	local gui = model:FindFirstChild("Nameplate") :: BillboardGui
+	local panel = gui:FindFirstChild("Panel") :: Frame
+	local label = panel:FindFirstChild("Income") :: TextLabel
+	label.Text = incomeText(income, model:GetAttribute("Mutation") :: string, model:GetAttribute("MutationMultiplier") :: number)
+end
+
+function Factory.SetForSale(model: Model, forSale: boolean)
+	local gui = model:FindFirstChild("Nameplate") :: BillboardGui
+	local panel = gui:FindFirstChild("Panel") :: Frame
+	local price = panel:FindFirstChild("Price") :: TextLabel
+	price.Text = "$" .. money(model:GetAttribute("BuyPrice") :: number) .. "  •  BUY"
+	price.Visible = forSale
+	gui.Size = UDim2.fromOffset(420, if forSale then 150 else 120)
 end
 
 function Factory.Create(characterId: string, mutationName: string?, origin: CFrame?): Model
@@ -239,6 +268,7 @@ function Factory.Create(characterId: string, mutationName: string?, origin: CFra
 	root.CFrame = CFrame.identity
 	root.Transparency = 1
 	root.Anchored = true
+	root.Massless = true
 	root.CanCollide = false
 	root.CanTouch = false
 	root.CanQuery = false

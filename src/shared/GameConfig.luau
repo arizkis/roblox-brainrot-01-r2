@@ -102,6 +102,33 @@ Config.World = {
 	ConveyorStart = v(-43, 0.95, -43), ConveyorEnd = v(43, 0.95, 43),
 }
 
+Config.Economy = {
+	StartingCash = 50, StartingRebirths = 0, StartingMultiplier = 1,
+	TickInterval = 1,
+}
+
+Config.Conveyor = {
+	SpawnInterval = 4, Speed = 3.5,
+	-- Each row totals 100; columns follow TierOrder. Rebirth 0 uses row 1.
+	-- The highest rebirth count among current players advances one row per rebirth.
+	-- Row 7 is the richest band and remains the cap for higher rebirth counts.
+	TierOddsBands = {
+		{60, 25, 10, 3.5, 1, 0.4, 0.1},
+		{42, 30, 17, 7.5, 2.5, 0.8, 0.2},
+		{25, 31, 25, 12, 5, 1.6, 0.4},
+		{15, 24, 30, 19, 8.5, 2.8, 0.7},
+		{8, 16, 28, 28, 14, 4.8, 1.2},
+		{4, 10, 22, 32, 22, 7.8, 2.2},
+		{2, 6, 16, 32, 28, 12, 4},
+	},
+}
+
+Config.Carry = {
+	PromptDistance = 12, PromptHoldDuration = 0.25,
+	Offset = v(0, 1.5, -3.6), PadScanInterval = 0.1,
+	PadEdgeTolerance = 0.65, PadVerticalReach = 7,
+}
+
 Config.CharacterOrder = {
 	"wet_floor_sign", "expired_yogurt_cup", "moldy_muffin",
 	"roomba_with_a_knife", "radical_garden_gnome", "rusty_clippy",
