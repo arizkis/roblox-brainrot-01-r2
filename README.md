@@ -170,6 +170,53 @@ a layout/scaling calculation; it does not substitute for inspecting a Studio ren
 API reference for the authored custom prompt adapter:
 [Roblox ProximityPrompt](https://create.roblox.com/docs/reference/engine/classes/ProximityPrompt).
 
+The final package can be reproduced and audited with:
+
+```sh
+rojo build default.project.json --output game.rbxl
+mkdir -p out && MAKEFUN_OUTPUT_DIR=out node main.ts
+node --experimental-vm-modules tools/verify-output.mjs out
+```
+
+The audit checks the binary framing/caps, source coverage, screenshots, play-link file,
+byte-identical dossier and compile-only Luau sanity. It integrity-checks the pinned
+luau-web 1.5.1 compiler archive and loads it in memory; no third-party files are written
+into the repository. This is independent of the kit's makefun check command, whose
+rows are pre-submit intake/link/transcript checks. Neither check runs the Roblox engine.
+out/ is a local, ignored build directory and is not part of the Git commit.
+
+TOUR.json now stages the four future Studio captures, in cover-first order:
+
+| Capture filename | Live scene |
+| --- | --- |
+| 1-cover-heist.png | Carry a Glitch Solar Samurai Squirrel toward home; warning wall rising behind, placed stock, income and HUD visible |
+| 2-conveyor-closeup.png | Five belt characters across Common, Uncommon, Rare, Legendary and Divine, with Golden/Diamond/Glitch/Void treatments |
+| 3-rival-steal-lock.png | A theft already underway when the rival locks the remaining stock; shield and 60s countdown visible |
+| 4-base-rebirth.png | A populated base after two real rebirth transactions, x2.25 income, eight pads and the next live cost |
+
+Start a fresh Studio Play session, wait for avatars, and use TWO clients for shot 3.
+Capture the client owning the lowest-numbered base (normally Base 01). Each tour call
+invokes ServerScriptService.Server.CaptureTour.Stage with the indicated shot argument;
+the helper resets that private Studio session's stock/cash, then uses the actual factory,
+cash checks, carrying, placement, stealing, locks and rebirth functions. It is guarded by
+RunService:IsStudio(), is never started by normal gameplay, and cannot be invoked by
+a client. CaptureViewController supplies a 15s Studio-only camera view; V releases it
+early. The clock and all gameplay continue running. The cover's warning has a three-
+second window, so capture promptly or rerun its stage. The other stock keeps moving.
+
+For example, in Studio's SERVER Command Bar during Play:
+
+```lua
+require(game.ServerScriptService.Server.CaptureTour).Stage("cover")
+```
+
+Use arguments conveyor, steal-lock and base-rebirth for the remaining scenes. Adjust
+the actual Studio camera if needed; these fixtures are not substitutes for inspecting
+the live game. The tour/camera helper has compiled but has not been exercised in Studio.
+Capture real running frames, replacing the three starter images with the four filenames
+above. Each image must be at most 256 KiB, long side at most 1280px, short side at least
+480px; use 1280x720 for the cover/thumbnail. No replacement images are generated here.
+
 main.ts packages game.rbxl, src/, screenshots/ and PLAY.json with the kit's vendored
 make.fun library. The screenshots and TOUR.json are still the kit placeholders and
 will need replacement when the game is playable. The owner's pending play-code

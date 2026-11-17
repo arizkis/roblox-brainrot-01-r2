@@ -1,3 +1,11 @@
+/**
+ * BRAINROT BAZAAR — the hand-in program for our 3D collection and heist game.
+ * Ship the Rojo-built game.rbxl, its src/ scripts, the Studio screenshots and
+ * PLAY.json to the output directory. Then use the kit's buildDossier function
+ * from vendor/makefun-roblox.ts to write the matching dossier.json for review.
+ * MAKEFUN_OUTPUT_DIR selects a local destination; the grader uses /output.
+ */
+
 // A working roblox-brainrot-01 entry (Node 22, standard library only): the game is this directory's Rojo
 // project, built into game.rbxl with `rojo build default.project.json --output game.rbxl`, and the program
 // hands it in. It copies game.rbxl, src/, screenshots/ and PLAY.json from beside this file to /output and

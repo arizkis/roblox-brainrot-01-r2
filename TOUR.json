@@ -1,1 +1,29 @@
-{"tour": 1, "steps": [{"screenshot": "1-start.png"}, {"screenshot": "2-play.png", "keys": ["Right"], "wait_ms": 1000}, {"screenshot": "3-end.png", "keys": ["Down"], "wait_ms": 1000}]}
+{
+  "tour": 1,
+  "steps": [
+    {
+      "screenshot": "1-cover-heist.png",
+      "keys": ["D"],
+      "wait_ms": 350,
+      "call": {"module": "ServerScriptService.Server.CaptureTour", "fn": "Stage", "arg": "cover", "on": "Server"}
+    },
+    {
+      "screenshot": "2-conveyor-closeup.png",
+      "keys": [],
+      "wait_ms": 300,
+      "call": {"module": "ServerScriptService.Server.CaptureTour", "fn": "Stage", "arg": "conveyor", "on": "Server"}
+    },
+    {
+      "screenshot": "3-rival-steal-lock.png",
+      "keys": [],
+      "wait_ms": 300,
+      "call": {"module": "ServerScriptService.Server.CaptureTour", "fn": "Stage", "arg": "steal-lock", "on": "Server"}
+    },
+    {
+      "screenshot": "4-base-rebirth.png",
+      "keys": [],
+      "wait_ms": 600,
+      "call": {"module": "ServerScriptService.Server.CaptureTour", "fn": "Stage", "arg": "base-rebirth", "on": "Server"}
+    }
+  ]
+}

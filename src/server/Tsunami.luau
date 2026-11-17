@@ -175,6 +175,17 @@ function Tsunami.Advance(now: number)
 	publish(now)
 end
 
+function Tsunami.ResetForTour(secondsToWave: number)
+	assert(RunService:IsStudio(), "Tour clock controls are Studio-only")
+	assert(secondsToWave >= 0 and secondsToWave <= Config.Tsunami.CycleDuration)
+	State.Tsunami.Phase = "Calm"
+	State.Tsunami.NextWaveAt = workspace:GetServerTimeNow() + secondsToWave
+	State.Tsunami.LastWaveZ = -edge
+	table.clear(State.Tsunami.PlayerPositions)
+	render(-edge, -Config.Tsunami.Height, false)
+	Tsunami.Advance(workspace:GetServerTimeNow())
+end
+
 function Tsunami.Start()
 	assert(not started, "Tsunami already started")
 	started = true

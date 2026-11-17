@@ -14,6 +14,11 @@ local signals = Instance.new("Folder")
 signals.Name = "GameSignals"
 signals.Parent = game:GetService("ReplicatedStorage")
 State.Signals = signals
+if game:GetService("RunService"):IsStudio() then
+	local camera = Instance.new("RemoteEvent")
+	camera.Name = "TourView"
+	camera.Parent = signals
+end
 Sessions.Start()
 Economy.Start()
 StealLock.Start()
